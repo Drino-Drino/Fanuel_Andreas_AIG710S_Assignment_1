@@ -75,6 +75,19 @@ levels(LoanVector)
 StatsBase.mode(Data[:loan])
 Data[Data[:loan].=="unknown",:loan] = StatsBase.mode(Data[:loan])
 
+#Cleaning contact column
+ContactVector = CategoricalArray(Data[:contact])
+levels(ContactVector) #no unknown/empty values
+
+#Cleaning The Month Column
+MonthVector = CategoricalArray(Data[:month])
+a = levels(MonthVector) #there are 10 categories that are not fully displayed in console
+#we create a for loop to display all the categories
+for i in 1:10 #Julia arrays count from 1
+    println(a[i])
+end  #The loop returned month values only, so no editing required here
+
+# 
 
 
 #=
