@@ -75,6 +75,8 @@ levels(LoanVector)
 StatsBase.mode(Data[:loan])
 Data[Data[:loan].=="unknown",:loan] = StatsBase.mode(Data[:loan])
 
+
+
 #=
 
 #train[isna.(train[:Married]), :Married] = mode(dropna(train[:Married])) 
