@@ -92,10 +92,27 @@ DOWVector = CategoricalArray(Data[:day_of_week])
 levels(DOWVector) #returned days only
 
 #Cleaning Duration Column
+DurationVector = CategoricalArray(Data[:duration])
+a = levels(DurationVector) #has numerous(1544) different values,
+for i in 1:1544 #Iterate through all values and print them
+    print(a[i])
+end  #returned no missing values
 
+#Cleaning Campaign Column
+CampaignVector = CategoricalArray(Data[:campaign])
+a = levels(CampaignVector) #has 42 categories
+for i in 1:42 #Iterate through all values and print them
+    print(a[i])
+end  #returned no missing values
 
-
+#Cleaning Pdays Column //Repeat above code
+PdaysVector = CategoricalArray(Data[:pdays])
+levels(PdaysVector)
+for i in 1:27 #Iterate through all values and print them
+    print(a[i])
+end  #returned no missing values
 #=
+
 
 #train[isna.(train[:Married]), :Married] = mode(dropna(train[:Married])) 
 #replace 0.0 of loan amount with the mean of loan amount 
