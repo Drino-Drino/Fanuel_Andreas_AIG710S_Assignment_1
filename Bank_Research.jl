@@ -87,7 +87,12 @@ for i in 1:10 #Julia arrays count from 1
     println(a[i])
 end  #The loop returned month values only, so no editing required here
 
-# 
+#Cleaning Day of week
+DOWVector = CategoricalArray(Data[:day_of_week])
+levels(DOWVector) #returned days only
+
+#Cleaning Duration Column
+
 
 
 #=
