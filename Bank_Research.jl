@@ -8,12 +8,24 @@ using DataFrames
 Pkg.add("StatsBase")
 #Github link: Pkg.add(PackageSpec(url = "https://github.com/JuliaStats/StatsBase.jl.git"))
 using StatsBase
-Pkg.add("ScikitLearn")
-#Github link: Pkg.add(PackageSpec(url = "https://github.com/cstjean/ScikitLearn.jl.git"))
-using ScikitLearn
-Pkg.build("PyCall")
-Pkg.build("PyPlot")
 
+Pkg.add(PackageSpec(url = "https://github.com/JuliaPy/PyCall.jl.git"))
+#+import PyCall
+using PyCall
+
+
+
+
+Pkg.add("StatsPlots")
+#rm StatPlots   -----------------
+#add StatsPlot  -----------------
+using StatsPlots
+Pkg.add(PackageSpec(url = "https://github.com/JuliaPy/PyPlot.jl")) 
+using PyPlot
+
+Pkg.add("ScikitLearn")
+#Github link: Pkg.add(PackageSpec(url = "https://github.com/cstjean/ScikitLearn.jl.git")) 
+using ScikitLearn
 
 
 #import the data file, while also allowing for the data to be edited
@@ -180,17 +192,202 @@ Categories = levels(NrEmployedVector)#returns a 11 element arrays, all data disp
 YVector = CategoricalArray(Data[:y])
 Categories = levels(YVector)#returns a 2 element arrays, yes or no being the only outcomes, therefore no edit required
 
+
 #Label Encoding all non numerical columns to numbers
-@sk_import preprocessing: LabelEncoder #=
+#import libraries required for the next section
+using ScikitLearn: fit!, predict, @sk_import, fit_transform! 
+ @sk_import preprocessing: LabelEncoder 
+ @sk_import model_selection: cross_val_score  
+ @sk_import metrics: accuracy_score 
+ @sk_import linear_model: LogisticRegression 
+ @sk_import ensemble: RandomForestClassifier 
+ @sk_import tree: DecisionTreeClassifier 
+@sk_import preprocessing: LabelEncoder 
+
+#ENCODING
 labelencoder = LabelEncoder() 
-categories = [2 3 4 5 6 7 8 9 10 20] #Column index numbers of categorical data. *********** last contact duration is taken as numeric despite 
-                                #the metadata description ****** number of columns reduced to 20 due to the removal of the poutcome column
+categories = [2 3 4 5 6 7 8 9 10 20] #an array of the column numbers that need encoding 
 
 for col in categories 
-    Data[col] = fit_transform!(labelencoder, Data[col]) 
+    Data[col] = fit_transform!(labelencoder, Data[col]) #performs encoding
 end
 
+#=****************************LOGISTIC REGRESSION, WITH L1 REGULARISATION IMPLEMENTATION*********************************************
+******************************LOGISTIC REGRESSION, WITH L1 REGULARISATION IMPLEMENTATION********************************************=#
 
+#=Choose dependant and independant variables: all columns from 1 to 19 can have an impact on
+whether or not the client decides to place a term deposit, so we use them all =#
+
+#=Picking training and testing data at 80:20 ratio
+80% of 41188 is 32950.4, so we reduce the training data to just below 80% i.e 32950 rows =#
+
+XTrainData = convert(Matrix, Data[1:32950,1:19]) #Data training matrix for independant variables
+XTestData = convert(Matrix, Data[32951:41188,1:19]) #Data Testing Matrix for independant variables
+YtrainData = Data[1:32950,20] #Data training Vector for the dependant variable
+YTestData = Data[32951:41188,20] #Data testing Vector for the dependant variable
+
+#Normalising the training design matrix
+
+function scale_features(X)
+    avg = mean(X, dims = 1)
+    stdDev = std(X, dims=1)
+    X_norm = (X .- avg) ./ stdDev
+
+    return (X_norm, avg, stdDev);
+end
+
+#Normalising the tsting design matrix
+function transform_features(X, avg, stdDev)
+    X_norm = (X .-avg) ./stdDev
+    return X_norm;
+end
+
+# Scale training features and get artificats for future use
+X_train_scaled, avg, stdDev = scale_features(XTrainData);
+
+# Transforming the testing features by using the learned artifacts
+X_test_scaled = transform_features(XTestData, avg, stdDev);
+
+#A function to apply the sigmoid activation to any supplied scalar/vector
+function sigmoid(z)
+    return 1 ./ (1 .+ exp.(.-z))    
+end
+
+#The regularised cost function computes the batch cost with a lambda penalty (λ) as well, using L1 regularisation
+   
+    function regularised_cost(X, y, θ, λ)
+        m = length(y)
+    
+        # Sigmoid predictions at current batch
+        h = sigmoid(X * θ)
+    
+        # left side of the cost function
+        positive_class_cost = ((-y)' * log.(h))
+    
+        # right side of the cost function
+        negative_class_cost = ((1 .- y)' * log.(1 .- h))
+    
+        # lambda effect
+        lambda_regularization = (λ/(2*m) * sum(abs.(θ[2 : end])))
+    
+        # Current batch cost. Basically mean of the batch cost plus regularization penalty
+        𝐉 = (1/m) * (positive_class_cost - negative_class_cost) + lambda_regularization
+    
+        # Gradients for all the theta members with regularization except the constant
+        ∇𝐉 = (1/m) * (X') * (h-y) + (λ/m) # Penalise all members
+    
+        ∇𝐉[20] = (1/m) * (X[:, 20])' * (h-y) # Exclude the constant
+    
+        return (𝐉, ∇𝐉)
+    end
+ 
+    #=
+    This function uses gradient descent to search for the weights that minimises the logit cost function.
+        A tuple with learned weights vector (θ) and the cost vector (𝐉) 
+        are returned.
+        =#
+        function logistic_regression_sgd(X, y, λ, fit_intercept=true, η=0.01, max_iter=1000)
+            
+            # Initialize some useful values
+            m = length(y); # number of training examples
+        
+            if fit_intercept
+                # Add a constant of 1s if fit_intercept is specified
+                constant = ones(m, 1)
+                X = hcat(constant, X)
+            else
+                X # Assume user added constants
+            end
+        
+            # Use the number of features to initialise the theta θ vector
+            n = size(X)[2]
+            θ = zeros(n)
+        
+            # Initialise the cost vector based on the number of iterations
+            𝐉 = zeros(max_iter)
+        
+            for iter in range(1, stop=max_iter)
+        
+                # Calcaluate the cost and gradient (∇𝐉) for each iter
+                𝐉[iter], ∇𝐉 = regularised_cost(X, y, θ, λ)
+        
+                # Update θ using gradients (∇𝐉) for direction and (η) for the magnitude of steps in that direction
+                θ = θ - (η * ∇𝐉)
+            end
+        
+            return (θ, 𝐉)
+        end
+
+        # Using the  gradient descent to search for the optimal weights (θ)
+θ, 𝐉 = logistic_regression_sgd(X_train_scaled, YtrainData, 0.0001, true, 0.3, 3000);
+
+# Plot the cost vector
+plot(𝐉, color="blue", title="Cost Per Iteration", legend=false,
+     xlabel="Num of iterations", ylabel="Cost")
+
+#=This function uses the learned weights (θ) to make new predictions.
+Predicted probabilities are returned=#
+        
+        function predict_proba(X, θ, fit_intercept=true)
+            m = size(X)[1]
+        
+            if fit_intercept
+                # Add a constant of 1s if fit_intercept is specified
+                constant = ones(m, 1)
+                X = hcat(constant, X)
+            else
+                X
+            end
+        
+            h = sigmoid(X * θ)
+            return h
+        end
+        
+        
+#=This function binarizes predicted probabilities using a threshold.
+Default threshold is set to 0.5=#
+        
+        function predict_class(proba, threshold=0.5)
+            return proba .>= threshold
+        end
+        
+        
+        # Training and validation score
+        train_score = mean(YtrainData .== predict_class(predict_proba(X_train_scaled, θ)));
+        test_score = mean(YTestData .== predict_class(predict_proba(X_test_scaled, θ)));
+        
+        # Training and validation score rounded to 4 decimals
+        println("Training score: ", round(train_score, sigdigits=4))
+        println("Testing score: ", round(test_score, sigdigits=4))
+
+#=Classification Function that takes a model as input and determines the Accuracy and Cross-Validation scores
+ function classification_model(model, predictors) 
+     y = convert(Array, Data[:20]) 
+     X = convert(Array, Data[predictors]) 
+     X2 = convert(Array, Data[predictors])                  
+     
+    #Fit the model: 
+     fit!(model, X, y) 
+
+     #Make predictions on training set: 
+     predictions = predict(model, X) 
+
+     #Print accuracy 
+     accuracy = accuracy_score(predictions, y) 
+     println("\naccuracy: ",accuracy) 
+
+     #5 fold cross validation 
+     cross_score = cross_val_score(model, X, y, cv=5)    
+ 
+     #print cross_val_score 
+     println("cross_validation_score: ", mean(cross_score)) 
+
+     #return predictions 
+     fit!(model, X, y) 
+     pred = predict(model, X2) 
+     return pred 
+ end
+#=
     for name in names(Data)              *******Code for printing all column names *********
        print(":", name, ", ")
       end
@@ -209,4 +406,9 @@ git remote add origin <Link to GitHub Repo>     //maps the remote repo link to l
 
 git remote -v                                  //this is to verify the link to the remote repo 
 
-git push -u origin master   =#
+git push -u origin master   
+using Pkg
+Pkg.add(PackageSpec(url = "https://github.com/JuliaPy/PyPlot.jl.git"))
+using PyPlot
+Pkg.add("matplotlib")=#
+
