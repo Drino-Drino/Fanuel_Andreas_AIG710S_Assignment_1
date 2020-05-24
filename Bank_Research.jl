@@ -8,17 +8,11 @@ using DataFrames
 Pkg.add("StatsBase")
 #Github link: Pkg.add(PackageSpec(url = "https://github.com/JuliaStats/StatsBase.jl.git"))
 using StatsBase
-
 Pkg.add(PackageSpec(url = "https://github.com/JuliaPy/PyCall.jl.git"))
 #+import PyCall
 using PyCall
 
-
-
-
 Pkg.add("StatsPlots")
-#rm StatPlots   -----------------
-#add StatsPlot  -----------------
 using StatsPlots
 Pkg.add(PackageSpec(url = "https://github.com/JuliaPy/PyPlot.jl")) 
 using PyPlot
@@ -27,6 +21,8 @@ Pkg.add("ScikitLearn")
 #Github link: Pkg.add(PackageSpec(url = "https://github.com/cstjean/ScikitLearn.jl.git")) 
 using ScikitLearn
 
+#=*************************************************DATA CLEANING***********************************************************
+***************************************************DATA CLEANING**********************************************************=#
 
 #import the data file, while also allowing for the data to be edited
 Data = CSV.read("C:\\Users\\andre\\Documents\\Nust\\AIG\\Ass1_Project\\bank-additional-full.csv", copycols = true);
@@ -47,7 +43,7 @@ head(Data, 3)
 describe(Data)
 
 #Display entire table
-#showall(Data)
+showall(Data)
 
 #=From the result above, we realise that there are missing values that are marked "unknown" or "nonexistent"
 we therefore need to replace these values with mean (for numerical data) and mode for categorical data=#
@@ -55,9 +51,6 @@ we therefore need to replace these values with mean (for numerical data) and mod
 #We have every participant's age, so we will not change anything in the column
 
 #We need to replace unknown in job with the mode of job i.e admin
-
-
-
 StatsBase.mode(Data[:job])
 #since the mode is admin, we replace all unknown values with admin
 Data[Data[:job].=="unknown",:job] = StatsBase.mode(Data[:job])
@@ -212,9 +205,6 @@ for col in categories
     Data[col] = fit_transform!(labelencoder, Data[col]) #performs encoding
 end
 
-#=****************************LOGISTIC REGRESSION, WITH L1 REGULARISATION IMPLEMENTATION*********************************************
-******************************LOGISTIC REGRESSION, WITH L1 REGULARISATION IMPLEMENTATION********************************************=#
-
 #=Choose dependant and independant variables: all columns from 1 to 19 can have an impact on
 whether or not the client decides to place a term deposit, so we use them all =#
 
@@ -226,8 +216,10 @@ XTestData = convert(Matrix, Data[32951:41188,1:19]) #Data Testing Matrix for ind
 YtrainData = Data[1:32950,20] #Data training Vector for the dependant variable
 YTestData = Data[32951:41188,20] #Data testing Vector for the dependant variable
 
-#Normalising the training design matrix
+#=****************************LOGISTIC REGRESSION, WITH L1 REGULARISATION IMPLEMENTATION*********************************************
+******************************LOGISTIC REGRESSION, WITH L1 REGULARISATION IMPLEMENTATION********************************************=#
 
+#Normalising the training design matrix
 function scale_features(X)
     avg = mean(X, dims = 1)
     stdDev = std(X, dims=1)
@@ -325,6 +317,9 @@ end
 plot(𝐉, color="blue", title="Cost Per Iteration", legend=false,
      xlabel="Num of iterations", ylabel="Cost")
 
+#=***********************************************************PREDICTIONS*****************************************************
+*************************************************************PREDICTIONS***************************************************=#
+
 #=This function uses the learned weights (θ) to make new predictions.
 Predicted probabilities are returned=#
         
@@ -360,55 +355,14 @@ Default threshold is set to 0.5=#
         println("Training score: ", round(train_score, sigdigits=4))
         println("Testing score: ", round(test_score, sigdigits=4))
 
-#=Classification Function that takes a model as input and determines the Accuracy and Cross-Validation scores
- function classification_model(model, predictors) 
-     y = convert(Array, Data[:20]) 
-     X = convert(Array, Data[predictors]) 
-     X2 = convert(Array, Data[predictors])                  
-     
-    #Fit the model: 
-     fit!(model, X, y) 
-
-     #Make predictions on training set: 
-     predictions = predict(model, X) 
-
-     #Print accuracy 
-     accuracy = accuracy_score(predictions, y) 
-     println("\naccuracy: ",accuracy) 
-
-     #5 fold cross validation 
-     cross_score = cross_val_score(model, X, y, cv=5)    
- 
-     #print cross_val_score 
-     println("cross_validation_score: ", mean(cross_score)) 
-
-     #return predictions 
-     fit!(model, X, y) 
-     pred = predict(model, X2) 
-     return pred 
- end
-#=
-    for name in names(Data)              *******Code for printing all column names *********
-       print(":", name, ", ")
-      end
-  
-************** add a package from a link  *****************
-
-#train[isna.(train[:Married]), :Married] = mode(dropna(train[:Married])) 
-#replace 0.0 of loan amount with the mean of loan amount 
-#train[train[:LoanAmount] .== 0, :LoanAmount] = floor(mean(dropna(train[:LoanAmount])))=#
-
-
-#DataMatrix = convert(Matrix, Data)
-
-#=Commiting to git commands
+#=*************************************************************NOTES*******************************************************************
+***************************************************************NOTES*******************************************************************
+Commiting to git commands
 git remote add origin <Link to GitHub Repo>     //maps the remote repo link to local git repo
 
 git remote -v                                  //this is to verify the link to the remote repo 
 
 git push -u origin master   
-using Pkg
-Pkg.add(PackageSpec(url = "https://github.com/JuliaPy/PyPlot.jl.git"))
-using PyPlot
-Pkg.add("matplotlib")=#
+****************************************************************THE END*****************************************************************
+****************************************************************THE END****************************************************************=#
 
